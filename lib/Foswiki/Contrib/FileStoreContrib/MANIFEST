@@ -1,0 +1,8 @@
+!noci
+data/System/FileStoreContrib.txt 0644
+lib/Foswiki/Contrib/FileStoreContrib/DEPENDENCIES 0644
+lib/Foswiki/Contrib/FileStoreContrib/MANIFEST 0644
+lib/Foswiki/Contrib/FileStoreContrib.pm 0644
+lib/Foswiki/Store/File.pm 0644
+test/unit/FileStoreContrib/FileStoreContribSuite.pm 0644
+test/unit/FileStoreContrib/FileStoreTests.pm 0644

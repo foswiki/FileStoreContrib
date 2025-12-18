@@ -802,21 +802,58 @@ hello world 3
 HERE
 
   my ($date, $user, $rev, $comment) = Foswiki::Func::getRevisionInfo($this->{test_web}, "SomeTopic", 1, "SomeAttachment.txt");
-  $this->assert_equals($user, "WikiGuest");
+#print STDERR "rev=".($rev//'undef').", date=".($date//'undef').", user=".($user//'undef').", comment=".($comment//'undef')."\n";
+#return;
+
+  $this->assert_equals("WikiGuest", $user);
   $this->assert_equals($now, $date);
   $this->assert_equals(1, $rev);
   $this->assert_equals("my first revision", $comment);
 
 
   ($date, $user, $rev, $comment) = Foswiki::Func::getRevisionInfo($this->{test_web}, "SomeTopic", 2, "SomeAttachment.txt");
-  $this->assert_equals($user, "WikiGuest");
+  $this->assert_equals("WikiGuest", $user);
   $this->assert_equals(2, $rev);
   $this->assert_equals("my second revision", $comment);
 
-  ($date, $user, $rev, $comment) = Foswiki::Func::getRevisionInfo($this->{test_web}, "SomeTopic", 3, "SomeAttachment.txt");
-  $this->assert_equals($user, "WikiGuest");
+  ($date, $user, $rev, $comment) = Foswiki::Func::getRevisionInfo($this->{test_web}, "SomeTopic", undef, "SomeAttachment.txt");
+  $this->assert_equals("WikiGuest", $user);
   $this->assert_equals(3, $rev);
   $this->assert_equals("my third revision", $comment);
+}
+
+sub test_dedup_attachment {
+  my $this = shift;
+
+  my $meta = $this->saveAttachment("SomeTopic", "SomeAttachment.txt", <<HERE, "my first checkin");
+hello world
+HERE
+  my ($date, $user, $rev, $comment) = Foswiki::Func::getRevisionInfo($this->{test_web}, "SomeTopic", undef, "SomeAttachment.txt");
+  #print STDERR "rev=".($rev//'undef').", date=".($date//'undef').", user=".($user//'undef').", comment=".($comment//'undef')."\n";
+  $this->assert_equals("WikiGuest", $user);
+  $this->assert_equals(1, $rev);
+  $this->assert_equals("my first checkin", $comment);
+  $meta->finish();
+
+  $meta = $this->saveAttachment("SomeTopic", "SomeAttachment.txt", <<HERE, "my second checkin");
+hello world
+HERE
+  ($date, $user, $rev, $comment) = Foswiki::Func::getRevisionInfo($this->{test_web}, "SomeTopic", undef, "SomeAttachment.txt");
+  #print STDERR "rev=".($rev//'undef').", date=".($date//'undef').", user=".($user//'undef').", comment=".($comment//'undef')."\n";
+  $this->assert_equals("WikiGuest", $user);
+  $this->assert_equals(2, $rev);
+  $this->assert_equals("my second checkin", $comment);
+  $meta->finish();
+
+  $meta = $this->saveAttachment("SomeTopic", "SomeAttachment.txt", <<HERE, "my third checkin");
+hello world
+HERE
+
+  ($date, $user, $rev, $comment) = Foswiki::Func::getRevisionInfo($this->{test_web}, "SomeTopic", undef, "SomeAttachment.txt");
+  #print STDERR "rev=".($rev//'undef').", date=".($date//'undef').", user=".($user//'undef').", comment=".($comment//'undef')."\n";
+  $this->assert_equals("WikiGuest", $user);
+  $this->assert_equals(2, $rev);
+  $this->assert_equals("my third checkin", $comment);
 }
 
 sub test_attachments {

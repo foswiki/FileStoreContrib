@@ -41,6 +41,7 @@ use File::Spec ();
 use File::Path ();
 use Assert;
 use IO::String ();
+use Digest::SHA ();
 use Error qw(:try);
 use Fcntl qw( :DEFAULT :flock );
 
@@ -367,17 +368,27 @@ sub saveAttachment {
   my $error;
 
   try {
-    my $attachmentExists = $this->attachmentExists($meta, $name);
-
     $version = 0;
-    $version = $this->_checkIn($meta, $name) if $attachmentExists;
-    $this->_uncacheLastRevision($meta, $name);
-    $version++;
 
+    my $maxRev = $this->_getLatestRevision($meta, $name) || 1;
     my $file = $this->_getPath(meta => $meta, attachment => $name);
-    $this->_saveStream($file, $stream);
+
+    if (-e $file) {
+      if ($this->_checkIn($meta, $name, $maxRev)) {
+        $this->_saveStream($file, $stream);
+        $version = $maxRev + 1;
+        $this->_uncacheLastRevision($meta, $name);
+      } else {
+        # attachment did not change
+        $version = $maxRev;
+      }
+    } else {
+      $this->_saveStream($file, $stream);
+      $version = 1;
+    }
 
     $this->_writeRevDB($meta, $name, $version, $opts);
+
   } catch Error with {
     $error = shift;
   } finally {
@@ -1488,7 +1499,7 @@ sub _getRevInfo {
   
   $info //= ();
   $info->{date} //= time();
-  $info->{author} //= $Foswiki::Users::BaseUserMapping::UNKNOWN_USER_CUID;
+  $info->{author} //= $info->{user} // $Foswiki::Users::BaseUserMapping::UNKNOWN_USER_CUID;
   $info->{version} //= 1;
 
   return $info;
@@ -1515,7 +1526,7 @@ sub _writeRevDB {
   $info{comment} = $opts->{comment} // "";
   $info{date} = defined $opts->{filedate} ? $opts->{filedate} : time();
   $info{size} = $opts->{filesize} if defined $opts->{filesize};
-  $info{user} = $opts->{author}; 
+  $info{author} = $info{user} = $opts->{author}; # (topics -> author, attachments -> user) => wtf
   $info{version} = $version;
   
   _mkPathTo($file);
@@ -1788,7 +1799,7 @@ sub _getMutexFile {
  
   $path[-1] .= ".mtx";
 
-  return $this->{_tmpDir} . "/" . Encode::decode_utf8(join("_", @path));
+  return $this->{_tmpDir} . "/" . join("_", @path);
 }
 
 =begin TML
@@ -1868,7 +1879,10 @@ sub _copy {
 
 =begin TML
 
----++ ObjectMethod _checkIn($meta, $attachment, $version) 
+---++ ObjectMethod _checkIn($meta, $attachment, $version) -> $boolean
+
+returns true if a new version was checked in. this might be false if 
+an attachment did not change
 
 =cut
 
@@ -1886,6 +1900,19 @@ sub _checkIn {
 
   die "version $version already exists: $histFile"
     if -e $histFile;
+
+  # dedup attachments: only check in real changes
+  if ($version > 1 && $attachment) {
+    my $prevVersion = $version - 1;
+    my $prevHistFile = $this->_getPath(meta => $meta, attachment => $attachment, subdir => ".store", file => $prevVersion);
+
+    my $fileSum = _checkSum($file);
+    my $histSum = _checkSum($prevHistFile);
+    if (_sameFiles($file, $prevHistFile)) {
+      _writeDebug("... version did not change: $file");
+      return 0;
+    }
+  }
 
   $this->_copy($file, $histFile);
 
@@ -2129,6 +2156,12 @@ sub _mtime {
   return (stat($file))[9] || 0;
 }
 
+sub _fileSize {
+  my $file = shift;
+
+  return (stat($file))[7] || 0;
+}
+
 sub _rmtree {
   my $root = shift;
 
@@ -2196,6 +2229,25 @@ sub _extractRevInfo {
   delete $info->{user};
 
   return $info;
+}
+
+sub _sameFiles {
+  my ($filePath1, $filePath2) = @_;
+
+  my $size1 = _fileSize($filePath1);
+  my $size2 = _fileSize($filePath2);
+  return 0 if $size1 && $size2 && $size1 != $size2;
+  
+  my $sum1 = _checkSum($filePath1);
+  my $sum2 = _checkSum($filePath2);
+
+  return 0 if $sum1 ne $sum2;
+  return 1;
+}
+
+sub _checkSum {
+  my $filePath = shift;
+  return Digest::SHA->new->addfile($filePath, "b")->hexdigest;
 }
 
 sub _mkPathTo {

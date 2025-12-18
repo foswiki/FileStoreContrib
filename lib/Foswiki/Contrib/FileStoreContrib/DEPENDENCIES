@@ -1,5 +1,7 @@
-# Dependencies for FileStoreContrib
-# Example:
-# Time::ParseDate,>=2003.0211,cpan,Required.
-# Foswiki::Plugins,>=1.2,perl,Requires version 1.2 of handler API.
-
+Digest::SHA,>=0,cpan,Required
+Encode,>=0,cpan,Required
+Error,>=0,cpan,Required
+File::Copy::Recursive,>=0,cpan,Required
+File::Path,>=0,cpan,Required
+File::Spec,>=0,cpan,Required
+IO::String,>=0,cpan,Required

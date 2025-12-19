@@ -1,12 +1,159 @@
-%META:TOPICINFO{author="ProjectContributor" date="1420222138" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1766146747" format="1.1" version="1"}%
 ---+!! %TOPIC%
 %FORMFIELD{"Description"}%
 
 %TOC%
 
----++ Usage
+---++ Description
 
----++ Examples
+This extension is a new take on a purely file-based storage engine, that is it does not need any external
+api or tool to store data. Instead each topic and attachment version is stored in a separate file. In that
+sense <nop>%TOPIC% resemples PlainFileStoreContrib shipped with Foswiki by default. With regards to their internal
+mode of operation and their directory layout both file-based storage engines are very different. In fact,
+%TOPIC% is rather related to RcsFastStoreContrib, more than with !PlainFileStoreContrib. <nop>%TOPIC% as well
+as <nop>RcsFastStoreContrib share the following properties:
+
+   * minimal code
+   * optimized for performance of serialization/deserialization process 
+   * optimized for high frequency concurrent operations 
+   * efficient use of disk space by means of deduplication 
+
+Further more <nop>%TOPIC% allows you to remove the dependency on RCS, the old UNIX file-based revision control 
+system that Foswiki has been build upon for such a long time.
+
+While !RcsFastStoreContrib is a drop-in replacement for the original RCSStoreContrib, you will
+need to convert your content to the new storage format used by <nop>%TOPIC%. This is done by the help
+of [[https://foswiki.org/Extensions/StoreConverterContrib][StoreConverterContrib]].
+
+---++ Comparison of directory layouts
+
+Let's have a look at the storage formats of the different implementations.
+
+---+++ <nop>RCSStoreContrib
+
+   : foswiki/
+      : data/web/
+         : topic1.txt ... topic data containing meta data
+         : topic1.txt,v ... topic revisions
+         : topic2.txt 
+         : topic2.txt,v 
+      : pub/web/topic/
+         : file_a.pdf ... attachments
+         : file_b.pdf ... 
+         : file_a.pdf,v ... attachment revisions
+         : file_b.pdf,v ... 
+
+---+++ <nop>RcsFastStoreContrib
+
+same as <nop>RCSStoreContrib with additional =.store= directories.
+
+
+   : foswiki/
+      : data/
+         : web/
+            : .store/
+               : topic1/meta.db ... cached meta object of latest release
+               : topic2/meta.db ... 
+            : topic1.txt ... topic data containing meta data
+            : topic1.txt,v ... topic revisions
+            : topic2.txt ... topic data containing meta data
+            : topic2.txt,v ... topic revisions
+      : pub/web/topic/
+         : file_a.pdf ... attachments
+         : file_b.pdf ... 
+         : file_a.pdf,v ... attachment revisions
+         : file_b.pdf,v ... 
+
+---+++ <nop>PlainFileStoreContrib
+
+   : foswiki/
+      : data/web/
+         : topic.txt ... topic data
+         : topic.m ... meta data (stored outside of topic data!)
+         : topic,pfv/ ... topic revisions
+            : ATTACHMENTS/ ... attachment revisions
+               : file_a.pdf/
+                  : 1
+                  : 2
+                  : 1.m
+                  : 2.m
+               : file_b.pdf/
+                  : 1
+                  : 2
+                  : 1.m
+                  : 2.m
+      : pub/web/topic/
+         : file_a.pdf ... attachments
+         : file_b.pdf 
+
+
+---+++ <nop>%TOPIC%
+
+   : foswiki/
+      : data/web/
+         : topic1.txt ... version 4
+         : topic2.txt
+         : .store/
+            : topic1/
+               : meta.db ... cached meta object of latest revision 
+               : 1 ... topic revisions
+               : 2
+               : 3
+            : topic2/
+               : meta.db ... cached meta object of latest revision
+               : 1 ... topic revisions
+               : 2
+               : 3
+      : pub/web/
+         : topic/
+            : file_a.pdf ... version 4
+            : file_b.pdf
+            : .store/
+               : file_a.pdf/ 
+                  : 1 ... attachment revisions
+                  : 2
+                  : 3
+                  : 1.db ... revision information (author, comment, date)
+                  : 2.db 
+                  : 3.db
+               : file_b.pdf/ 
+                  : 1 ... attachment revisions
+                  : 2
+                  : 3
+                  : 1.db ... revision information (author, comment, date)
+                  : 2.db 
+                  : 3.db
+
+---+++ Advantages and Disadvantages
+
+<nop>RCSStoreContrib and <nop>PlainFileStoreContrib store the top revision _twice_ on disk.
+This is especially problematic when using Foswiki as a document management system storing large
+files such as movies or sound files that only ever have a single revision. For example
+a 650MB video file will atually use 1.3GB disk space to be stored.
+
+<nop>RcsFastStoreContrib and <nop>%TOPIC only store a single-revision file only once. <nop>%TOPIC%
+futhermore stores _any_ revision only once. As you can see in above directory schema
+revision 4 is still stored in =data/web/topic.txt= while all previous versions 1, 2, 3 ... etc are
+located in the related =.store/= directory. Only when checking in the next revision 5 will revision
+4 be moved into the =.store/=.
+
+Note that any RCS based storage inherit the limitation of RCS: a reduced maxium filename length,
+limited character encoding of meta data such as user IDs. Last but not least some operating systems
+don't ship RCS as a tool anymore.
+
+Historically, the =data/= directory has been used for topic data only, whereas =pub/= was used
+for attachments. <nop>PlainFileStoreContrib does store revision data of attachments in =data/=
+as well. As such it might be difficult to manage disk usage for attachments when large amounts
+of uploaded data is expected to be located on different filesystems or shares. <no>%TOPIC%
+still sticks to the separation of topic and attachments.
+
+---++ Migrating storage 
+
+   1 Install [[https://foswiki.org/Extensions/StoreConverterContrib][StoreConverterContrib]]
+   1 Convert the content by following the instructions in StoreConverterContrib.
+   1 Swap old content with new content
+   1 Configure ={Store}{Implementation} = 'Foswiki::Store::File'= 
+   1 Restart the foswiki service backend
 
 ---++ Installation Instructions
 %$INSTALL_INSTRUCTIONS%
@@ -17,7 +164,7 @@
 ---++ Change History
 
 %TABLE{columnwidths="7em" tablewidth="100%"}%
-| | |
+|  19 Dec 2025 | initial release |
 
 %META:FORM{name="PackageForm"}%
 %META:FIELD{name="Author" title="Author" value="Michael Daum"}%

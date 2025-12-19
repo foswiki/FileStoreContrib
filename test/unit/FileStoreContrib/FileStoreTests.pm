@@ -448,7 +448,6 @@ WHEE
 
   $meta->finish();
   $meta = $this->createTopic("NoHistory");
-
   $meta->loadVersion(3);
 
   # We asked for an out-of-range version; even though that's the rev no

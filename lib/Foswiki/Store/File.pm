@@ -1645,6 +1645,7 @@ sub _readMetaDB {
   my $tmpMeta = $this->_decoder->decode($data);
 
   _copyMeta($tmpMeta, $meta);
+  $meta->invalidatePrefs();
   #_writeDebug("reading meta from storable, version=".$meta->getLoadedRev());
 
   return 1;
@@ -2221,8 +2222,8 @@ sub _extractRevInfo {
   my $attrs = Foswiki::Attrs->new($string);
   my $info = {%$attrs};
 
-  $info->{author} //= $info->{user};
-  $info->{version} =~ s/^\d\.(\d+)$/$1/;
+  $info->{author} //= $info->{user} if defined $info->{user};
+  $info->{version} = 1 unless defined $info->{version} && $info->{version} =~ /^\d+$/;
 
   delete $info->{_RAW};
   delete $info->{_DEFAULT};

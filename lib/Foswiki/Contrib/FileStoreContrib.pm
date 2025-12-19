@@ -24,7 +24,7 @@ package Foswiki::Contrib::FileStoreContrib;
 use strict;
 use warnings;
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 our $RELEASE = '%$RELEASE%';
 our $SHORTDESCRIPTION = 'File-based Store for Foswiki';
 our $LICENSECODE = '%$LICENSECODE%';

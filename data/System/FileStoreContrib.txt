@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1766146747" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1766162404" format="1.1" version="1"}%
 ---+!! %TOPIC%
 %FORMFIELD{"Description"}%
 
@@ -52,7 +52,7 @@ same as <nop>RCSStoreContrib with additional =.store= directories.
       : data/
          : web/
             : .store/
-               : topic1/meta.db ... cached meta object of latest release
+               : topic1/meta.db ... cached meta object of latest revision
                : topic2/meta.db ... 
             : topic1.txt ... topic data containing meta data
             : topic1.txt,v ... topic revisions
@@ -155,6 +155,17 @@ still sticks to the separation of topic and attachments.
    1 Configure ={Store}{Implementation} = 'Foswiki::Store::File'= 
    1 Restart the foswiki service backend
 
+---++ Webserver configuration
+
+Note that the =pub/.../.store/= directories must be protected in your webserver's configuration.
+For NGINX use something like:
+
+<verbatim>
+location ~ .store {
+  return 403;
+}
+</verbatim>
+
 ---++ Installation Instructions
 %$INSTALL_INSTRUCTIONS%
 
@@ -164,6 +175,7 @@ still sticks to the separation of topic and attachments.
 ---++ Change History
 
 %TABLE{columnwidths="7em" tablewidth="100%"}%
+|  19 Dec 2025 | document required settings for the webserver to protect internal store information |
 |  19 Dec 2025 | initial release |
 
 %META:FORM{name="PackageForm"}%

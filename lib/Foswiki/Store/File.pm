@@ -1,6 +1,6 @@
 # Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 #
-# Copyright (C) 2024-2025 Michael Daum https://michaeldaumconsulting.com
+# Copyright (C) 2024-2026 Michael Daum https://michaeldaumconsulting.com
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -247,6 +247,9 @@ sub moveTopic {
   my ($this, $oldMeta, $newMeta) = @_;
 
   _writeDebug("### called moveTopic");
+  die "FileStore: cannot move topic onto itself: ".$oldMeta->getPath
+    if $oldMeta->getPath eq $newMeta->getPath;
+
   my $lock1 = $this->_enterCritical(
     meta => $oldMeta, 
     mode => LOCK_EX
@@ -292,7 +295,7 @@ sub moveTopic {
 sub topicExists {
   my ($this, $web, $topic) = @_;
 
-  _writeDebug("### called topicExists");
+  #_writeDebug("### called topicExists");
 
   return 0 unless defined $web && $web ne '';
   return 0 unless defined $topic && $topic ne '';
@@ -410,6 +413,14 @@ sub moveAttachment {
   my ($this, $oldMeta, $oldAttachment, $newMeta, $newAttachment) = @_;
 
   _writeDebug("### called moveAttachment");
+  my $oldFile = $this->_getPath(meta => $oldMeta, attachment => $oldAttachment);
+  my $newFile = $this->_getPath(meta => $newMeta, attachment => $newAttachment);
+
+  return unless -e $oldFile;
+
+  die "FileStore: cannot move attachment onto itself: ".$oldMeta->getPath.", $oldAttachment"
+    if $oldFile eq $newFile;
+
   ASSERT($oldAttachment) if DEBUG;
   ASSERT($newAttachment) if DEBUG;
 
@@ -427,10 +438,6 @@ sub moveAttachment {
   my $error;
 
   try {
-    my $oldFile = $this->_getPath(meta => $oldMeta, attachment => $oldAttachment);
-    return unless -e $oldFile;
-
-    my $newFile = $this->_getPath(meta => $newMeta, attachment => $newAttachment);
     $this->_move($oldFile, $newFile);
 
     my $oldStore = $this->_getPath(meta => $oldMeta, attachment => $oldAttachment, subdir => ".store");
@@ -585,7 +592,7 @@ sub moveWeb {
 sub webExists {
   my ($this, $web) = @_;
 
-  _writeDebug("### called webExists");
+  #_writeDebug("### called webExists");
 
   return $this->topicExists($web, $Foswiki::cfg{WebPrefsTopicName});
 }
@@ -1039,9 +1046,10 @@ sub eachAttachment {
 
   _writeDebug("### called eachAttachment");
 
-  # deliberately _not_ reading from filesystem and use in memory infos instead
-  $meta->loadVersion() unless $meta->latestIsLoaded();
+  # make sure it is loaded
+  $meta->loadVersion();
 
+  # deliberately _not_ reading from filesystem and use in memory infos instead
   my @list = ();
   foreach my $name (map { $_->{name} } $meta->find('FILEATTACHMENT')) {
     my $file = $this->_getPath(meta => $meta, attachment => $name);
@@ -1354,8 +1362,10 @@ sub _enterCritical {
   my $file = $this->_getMutexFile(%args);
   $args{mode} //= LOCK_SH;
 
-  #print STDERR "FileStore: mutex file $file already exists ... ".($args{mode} == LOCK_EX?"waiting":"")."\n"
-  #  if -e $file;
+  if (-e $file && $args{mode} == LOCK_EX) {
+    #print STDERR "FileStore: mutex file $file already exists ... \n";
+    return;
+  }
 
   if (TRACE) {
     my ($package, undef, $line) = caller;
@@ -1400,6 +1410,8 @@ This method destroys the lock with the given id.
 
 sub _leaveCritical {
   my ($this, $lock) = @_;
+
+  return unless $lock;
 
   _writeDebug("### leaving critical exclusive mode for $lock->{file}")
     if $lock->{mode} == LOCK_EX;

@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1766162404" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1773672769" format="1.1" version="1"}%
 ---+!! %TOPIC%
 %FORMFIELD{"Description"}%
 
@@ -175,6 +175,7 @@ location ~ .store {
 ---++ Change History
 
 %TABLE{columnwidths="7em" tablewidth="100%"}%
+|  16 Mar 2026 | repRev might result in recursive calls to store api thus causing a deadlock. a meta object must be loaded before being serialized | 
 |  19 Dec 2025 | document required settings for the webserver to protect internal store information |
 |  19 Dec 2025 | initial release |
 
@@ -183,7 +184,7 @@ location ~ .store {
 %META:FIELD{name="Version" title="Version" value="%$VERSION%"}%
 %META:FIELD{name="Release" title="Release" value="%$RELEASE%"}%
 %META:FIELD{name="Description" title="Description" value="%$SHORTDESCRIPTION%"}%
-%META:FIELD{name="Copyright" value="2025, Michael Daum, All Rights Reserved"}%
+%META:FIELD{name="Copyright" value="2025-2026, Michael Daum, All Rights Reserved"}%
 %META:FIELD{name="License" value="GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]])"}%
 %META:FIELD{name="Repository" value="https://github.com/foswiki/%$ROOTMODULE%"}%
 %META:FIELD{name="Home" value="http://foswiki.org/Extensions/%$ROOTMODULE%"}%

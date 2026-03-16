@@ -1,6 +1,6 @@
 # Extension for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 #
-# FileStoreContrib is Copyright (C) 2025 Michael Daum http://michaeldaumconsulting.com
+# FileStoreContrib is Copyright (C) 2025-2026 Michael Daum http://michaeldaumconsulting.com
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,7 +24,7 @@ package Foswiki::Contrib::FileStoreContrib;
 use strict;
 use warnings;
 
-our $VERSION = '1.01';
+our $VERSION = '1.10';
 our $RELEASE = '%$RELEASE%';
 our $SHORTDESCRIPTION = 'File-based Store for Foswiki';
 our $LICENSECODE = '%$LICENSECODE%';

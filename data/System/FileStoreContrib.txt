@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1773672769" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1788865192" format="1.1" version="1"}%
 ---+!! %TOPIC%
 %FORMFIELD{"Description"}%
 
@@ -16,7 +16,7 @@ as <nop>RcsFastStoreContrib share the following properties:
    * minimal code
    * optimized for performance of serialization/deserialization process 
    * optimized for high frequency concurrent operations 
-   * efficient use of disk space by means of deduplication 
+   * efficient use of disk space 
 
 Further more <nop>%TOPIC% allows you to remove the dependency on RCS, the old UNIX file-based revision control 
 system that Foswiki has been build upon for such a long time.
@@ -175,6 +175,7 @@ location ~ .store {
 ---++ Change History
 
 %TABLE{columnwidths="7em" tablewidth="100%"}%
+|  06 May 2026 | removed broken feature deduplicating attachments |
 |  16 Mar 2026 | repRev might result in recursive calls to store api thus causing a deadlock. a meta object must be loaded before being serialized | 
 |  19 Dec 2025 | document required settings for the webserver to protect internal store information |
 |  19 Dec 2025 | initial release |

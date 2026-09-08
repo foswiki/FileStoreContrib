@@ -41,7 +41,6 @@ use File::Spec ();
 use File::Path ();
 use Assert;
 use IO::String ();
-use Digest::SHA ();
 use Error qw(:try);
 use Fcntl qw( :DEFAULT :flock );
 
@@ -89,7 +88,7 @@ sub new {
   my $class = shift;
   my $this = $class->SUPER::new(@_);
 
-  _writeDebug("### called new this=$this");
+  #_writeDebug("### called new this=$this");
 
   $this->{_tmpDir} = $Foswiki::cfg{TempfileDir} || $Foswiki::cfg{WorkingDir} . '/tmp';
   $this->{_lockIndex} = 0;
@@ -108,7 +107,7 @@ sub new {
 sub finish {
   my $this = shift;
 
-  _writeDebug("### called finish");
+  #_writeDebug("### called finish");
 
   foreach my $lock (values %{$this->{_locks}}) {
     print STDERR "FileStore: WARNING - lock for $lock->{file} has been left behind ... force closing\n";
@@ -119,8 +118,6 @@ sub finish {
   undef $this->{_decoder};
   undef $this->{_locks};
   undef $this->{_lockOfFile};
-  undef $this->{_encoder};
-  undef $this->{_decoder};
   undef $this->{_maxRev};
   undef $this->{_tmpDir};
 
@@ -377,14 +374,10 @@ sub saveAttachment {
     my $file = $this->_getPath(meta => $meta, attachment => $name);
 
     if (-e $file) {
-      if ($this->_checkIn($meta, $name, $maxRev)) {
-        $this->_saveStream($file, $stream);
-        $version = $maxRev + 1;
-        $this->_uncacheLastRevision($meta, $name);
-      } else {
-        # attachment did not change
-        $version = $maxRev;
-      }
+      $this->_checkIn($meta, $name, $maxRev);
+      $this->_saveStream($file, $stream);
+      $version = $maxRev + 1;
+      $this->_uncacheLastRevision($meta, $name);
     } else {
       $this->_saveStream($file, $stream);
       $version = 1;
@@ -1367,7 +1360,7 @@ sub _enterCritical {
     return;
   }
 
-  if (TRACE) {
+  if (0) {
     my ($package, undef, $line) = caller;
     _writeDebug("### entering critical exclusive mode for $file via $package,$line")
       if $args{mode} == LOCK_EX;
@@ -1413,10 +1406,12 @@ sub _leaveCritical {
 
   return unless $lock;
 
-  _writeDebug("### leaving critical exclusive mode for $lock->{file}")
-    if $lock->{mode} == LOCK_EX;
-  _writeDebug("### leaving critical shared mode for $lock->{file}")
-    if $lock->{mode} == LOCK_SH;
+  if (TRACE) {
+    _writeDebug("### leaving critical exclusive mode for $lock->{file}")
+      if $lock->{mode} == LOCK_EX;
+    _writeDebug("### leaving critical shared mode for $lock->{file}")
+      if $lock->{mode} == LOCK_SH;
+  }
 
   die "undefined lock" unless defined $lock;
 
@@ -1809,10 +1804,9 @@ sub _getMutexFile {
   push @path, $topic if $topic;
   push @path, $args{attachment} if $args{attachment};
   push @path, $args{file} if $args{file};
- 
-  $path[-1] .= ".mtx";
-
-  return $this->{_tmpDir} . "/" . join("_", @path);
+  
+  my $mtxFile = substr(join("_", @path), 0, 200); # trunc long filenames
+  return $this->{_tmpDir} . "/" . $mtxFile . ".mtx";
 }
 
 =begin TML
@@ -1902,7 +1896,7 @@ an attachment did not change
 sub _checkIn {
   my ($this, $meta, $attachment, $version) = @_;
 
-  _writeDebug("### called _checkIn()");
+  _writeDebug("### called _checkIn(".$meta->getPath.")");
 
   $version ||= $this->_getLatestRevision($meta, $attachment) || 1;
 
@@ -1913,19 +1907,6 @@ sub _checkIn {
 
   die "version $version already exists: $histFile"
     if -e $histFile;
-
-  # dedup attachments: only check in real changes
-  if ($version > 1 && $attachment) {
-    my $prevVersion = $version - 1;
-    my $prevHistFile = $this->_getPath(meta => $meta, attachment => $attachment, subdir => ".store", file => $prevVersion);
-
-    my $fileSum = _checkSum($file);
-    my $histSum = _checkSum($prevHistFile);
-    if (_sameFiles($file, $prevHistFile)) {
-      _writeDebug("... version did not change: $file");
-      return 0;
-    }
-  }
 
   $this->_copy($file, $histFile);
 
@@ -1975,34 +1956,30 @@ sub _saveFile {
 
 =begin TML
 
----++ ObjectMethod _saveStream($file, $fh) 
+---++ ObjectMethod _saveStream($file, $fromFH) 
 
 =cut
 
 sub _saveStream {
-  my ($this, $file, $fh) = @_;
+  my ($this, $file, $fromFH) = @_;
 
   #_writeDebug("### called _saveStream");
 
   _mkPathTo($file);
 
-  my $F;
+  my $toFH;
 
-  open($F, '>', $file) or die "open $file failed: $!";
+  open($toFH, '>', $file) or die "open $file failed: $!";
 
-  binmode($F) or die "failed to binmode $file: $!";
-
-  flock($fh, LOCK_EX) or die "failed to lock file $file: $!";
+  binmode($toFH) or die "failed to binmode $file: $!";
 
   my $data;
 
-  while (read($fh, $data, 1024)) {
-    print $F $data;
+  while (read($fromFH, $data, 1024)) {
+    print $toFH $data;
   }
 
-  flock($fh, LOCK_UN) or die "failed to unlock file $file: $!";
-
-  close($F) or die "close $file failed: $!";
+  close($toFH) or die "close $file failed: $!";
 
   chmod($Foswiki::cfg{Store}{filePermission}, $file);
 }
@@ -2242,25 +2219,6 @@ sub _extractRevInfo {
   delete $info->{user};
 
   return $info;
-}
-
-sub _sameFiles {
-  my ($filePath1, $filePath2) = @_;
-
-  my $size1 = _fileSize($filePath1);
-  my $size2 = _fileSize($filePath2);
-  return 0 if $size1 && $size2 && $size1 != $size2;
-  
-  my $sum1 = _checkSum($filePath1);
-  my $sum2 = _checkSum($filePath2);
-
-  return 0 if $sum1 ne $sum2;
-  return 1;
-}
-
-sub _checkSum {
-  my $filePath = shift;
-  return Digest::SHA->new->addfile($filePath, "b")->hexdigest;
 }
 
 sub _mkPathTo {

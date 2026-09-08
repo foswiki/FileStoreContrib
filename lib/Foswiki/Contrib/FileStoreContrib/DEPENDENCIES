@@ -1,4 +1,3 @@
-Digest::SHA,>=0,cpan,Required
 Encode,>=0,cpan,Required
 Error,>=0,cpan,Required
 File::Copy::Recursive,>=0,cpan,Required
